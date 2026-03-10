@@ -161,6 +161,7 @@ func (t *TokenService) fetchTokenFromPhonePe(ctx context.Context) (*OAuthRespons
 		commonHttp.POST,
 		nil,
 		reflect.TypeOf(OAuthResponse{}),
+		t.Logger,
 	)
 
 	var oAuthResponse OAuthResponse

@@ -36,16 +36,13 @@ func NewBoundedConcurrentLinkedQueue(maxSize int, log logger.Logger) *BoundedCon
 }
 
 func (b *BoundedConcurrentLinkedQueue) Add(data *models.BaseEvent) {
-	if len(b.queue) < b.maxSize && data != nil {
-		select {
-		case b.queue <- data:
-		default:
-			b.Logger.Warn("reached queue max size, skipping event", "event_name", data.EventName, "max_size", b.maxSize)
-		}
-	} else {
-		if data != nil {
-			b.Logger.Warn("reached queue max size or data is nil, skipping event", "event_name", data.EventName, "max_size", b.maxSize)
-		}
+	if data == nil {
+		return
+	}
+	select {
+	case b.queue <- data:
+	default:
+		b.Logger.Warn("reached queue max size, skipping event", "event_name", data.EventName, "max_size", b.maxSize)
 	}
 }
 

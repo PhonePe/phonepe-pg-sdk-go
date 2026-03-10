@@ -19,7 +19,6 @@ package publisher
 import (
 	"context"
 	"net/http"
-	"sync"
 
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/events"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/events/models"
@@ -32,11 +31,6 @@ type EventPublisherFactory struct {
 	HostURL    string
 	Logger     logger.Logger
 }
-
-var ( // Package-level variable for cached EventPublisher
-	cachedEventPublisher EventPublisher
-	once                 sync.Once
-)
 
 func NewEventPublisherFactory(
 	httpClient *http.Client,
@@ -52,15 +46,12 @@ func NewEventPublisherFactory(
 
 func (epf *EventPublisherFactory) GetEventPublisher(shouldPublishEvents bool) EventPublisher {
 	if shouldPublishEvents {
-		once.Do(func() {
-			cachedEventPublisher = NewQueuedEventPublisher(
-				epf.HttpClient,
-				queue.NewBoundedConcurrentLinkedQueue(events.QUEUE_MAX_SIZE, epf.Logger),
-				epf.HostURL,
-				epf.Logger,
-			)
-		})
-		return cachedEventPublisher
+		return NewQueuedEventPublisher(
+			epf.HttpClient,
+			queue.NewBoundedConcurrentLinkedQueue(events.QUEUE_MAX_SIZE, epf.Logger),
+			epf.HostURL,
+			epf.Logger,
+		)
 	}
 	return &NoOpEventPublisher{}
 }

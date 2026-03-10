@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/exception"
+	"github.com/PhonePe/phonepe-pg-sdk-go/common/logger"
 )
 
 const (
@@ -46,6 +47,7 @@ type HttpCommand struct {
 	MethodName   HttpMethodType
 	QueryParams  map[string]string
 	ResponseType reflect.Type
+	Logger       logger.Logger
 }
 
 func (hc *HttpCommand) prepareRequestBody() (io.Reader, error) {
@@ -149,7 +151,7 @@ func (hc *HttpCommand) handleResponse(response *http.Response, responseObj inter
 }
 
 func (hc *HttpCommand) Execute(ctx context.Context, responseObj interface{}) error {
-	fmt.Printf("Calling %s : %s%s\n", hc.MethodName, hc.HostURL, hc.URL)
+	hc.Logger.Debug("calling API", "method", hc.MethodName, "url", hc.HostURL+hc.URL)
 	httpURL, err := hc.prepareHttpURL()
 	if err != nil {
 		return err
@@ -178,6 +180,7 @@ func NewHttpCommand(
 	methodName HttpMethodType,
 	queryParams map[string]string,
 	responseType reflect.Type,
+	log logger.Logger,
 ) *HttpCommand {
 	return &HttpCommand{
 		Client:       client,
@@ -189,6 +192,7 @@ func NewHttpCommand(
 		MethodName:   methodName,
 		QueryParams:  queryParams,
 		ResponseType: responseType,
+		Logger:       log,
 	}
 }
 
@@ -214,7 +218,7 @@ func (hc *HttpCommand) ExecuteWithRetry(ctx context.Context, responseObj interfa
 		// Success! No need to retry
 		if err == nil {
 			if attempt > 0 {
-				fmt.Printf("Request succeeded after %d retries\n", attempt)
+				hc.Logger.Info("request succeeded after retries", "retries", attempt)
 			}
 			return nil
 		}
@@ -230,8 +234,11 @@ func (hc *HttpCommand) ExecuteWithRetry(ctx context.Context, responseObj interfa
 		// Don't sleep after the last attempt
 		if attempt < config.MaxAttempts-1 {
 			delay := calculateBackoff(attempt, config)
-			fmt.Printf("Request failed (attempt %d/%d), retrying after %v: %v\n",
-				attempt+1, config.MaxAttempts, delay, err)
+			hc.Logger.Debug("request failed, retrying",
+				"attempt", attempt+1,
+				"max_attempts", config.MaxAttempts,
+				"retry_after", delay,
+				"error", err)
 
 			// Sleep with context awareness - stop sleeping if context is cancelled
 			select {

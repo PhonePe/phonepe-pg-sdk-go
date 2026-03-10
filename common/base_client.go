@@ -139,6 +139,7 @@ func (bc *BaseClient) RequestViaAuthRefresh(ctx context.Context, methodName comm
 		methodName,
 		queryParams,
 		responseType,
+		bc.Logger,
 	)
 
 	// Use retry logic if configured, otherwise execute directly

@@ -187,5 +187,6 @@ func (qep *QueuedEventPublisher) buildHttpCommand(
 		commonHttp.POST,
 		nil, // No query params for this endpoint
 		nil, // Response type will be handled generically
+		qep.Logger,
 	)
 }
