@@ -1,0 +1,64 @@
+/*
+ *  Copyright (c) 2026 Original Author(s), PhonePe India Pvt. Ltd.
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *  http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
+package enums
+
+type EventType string
+
+const (
+	PAY_SUCCESS EventType = "PAY_SUCCESS"
+	PAY_FAILED  EventType = "PAY_FAILED"
+
+	REFUND_SUCCESS EventType = "REFUND_SUCCESS"
+	REFUND_FAILED  EventType = "REFUND_FAILED"
+
+	REFUND_STATUS_SUCCESS EventType = "REFUND_STATUS_SUCCESS"
+	REFUND_STATUS_FAILED  EventType = "REFUND_STATUS_FAILED"
+
+	ORDER_STATUS_SUCCESS EventType = "ORDER_STATUS_SUCCESS"
+	ORDER_STATUS_FAILED  EventType = "ORDER_STATUS_FAILED"
+
+	TRANSACTION_STATUS_SUCCESS EventType = "TRANSACTION_STATUS_SUCCESS"
+	TRANSACTION_STATUS_FAILED  EventType = "TRANSACTION_STATUS_FAILED"
+
+	CREATE_SDK_ORDER_SUCCESS EventType = "CREATE_SDK_ORDER_SUCCESS"
+	CREATE_SDK_ORDER_FAILED  EventType = "CREATE_SDK_ORDER_FAILED"
+
+	STANDARD_CHECKOUT_CLIENT_INITIALIZED EventType = "STANDARD_CHECKOUT_CLIENT_INITIALIZED"
+	CUSTOM_CHECKOUT_CLIENT_INITIALIZED   EventType = "CUSTOM_CHECKOUT_CLIENT_INITIALIZED"
+	TOKEN_SERVICE_INITIALIZED            EventType = "TOKEN_SERVICE_INITIALIZED"
+
+	OAUTH_FETCH_FAILED_USED_CACHED_TOKEN EventType = "OAUTH_FETCH_FAILED_USED_CACHED_TOKEN"
+
+	CALLBACK_SERIALIZATION_FAILED EventType = "CALLBACK_SERIALIZATION_FAILED"
+
+	SUBSCRIPTION_CLIENT_INITIALIZED EventType = "SUBSCRIPTION_CLIENT_INITIALIZED"
+
+	SETUP_SUCCESS EventType = "SETUP_SUCCESS"
+	SETUP_FAILED  EventType = "SETUP_FAILED"
+
+	NOTIFY_SUCCESS EventType = "NOTIFY_SUCCESS"
+	NOTIFY_FAILED  EventType = "NOTIFY_FAILED"
+
+	REDEEM_SUCCESS EventType = "REDEEM_SUCCESS"
+	REDEEM_FAILED  EventType = "REDEEM_FAILED"
+
+	CANCEL_SUCCESS EventType = "CANCEL_SUCCESS"
+	CANCEL_FAILED  EventType = "CANCEL_FAILED"
+
+	SUBSCRIPTION_STATUS_SUCCESS EventType = "SUBSCRIPTION_STATUS_SUCCESS"
+	SUBSCRIPTION_STATUS_FAILED  EventType = "SUBSCRIPTION_STATUS_FAILED"
+)
