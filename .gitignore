@@ -1,32 +1,92 @@
-# If you prefer the allow list template instead of the deny list, see community template:
-# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
 # Binaries for programs and plugins
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
+*.test
+*.out
+
+# Go build artifacts
+bin/
+dist/
+build/
+*.a
 
 # Test binary, built with `go test -c`
 *.test
 
-# Code coverage profiles and other test artifacts
+# Output of the go coverage tool
 *.out
-coverage.*
+coverage.out
 *.coverprofile
-profile.cov
-
-# Dependency directories (remove the comment below to include it)
-# vendor/
+coverage.html
 
 # Go workspace file
 go.work
-go.work.sum
 
-# env file
+# Dependency directories
+vendor/
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Compiled Object files
+*.o
+*.obj
+
+# Profiling data
+*.prof
+*.pprof
+
+# Debug files
+__debug_bin
+
+# Environment variables
 .env
+.env.local
+.env.*.local
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Log files
+*.log
+logs/
+
+# OS specific files
+Thumbs.db
+.DS_Store
+
+# Go module cache (optional, uncomment if needed)
+# go.sum
+
+# Demo app binaries
+demo-app/demo-app
+demo-app/standard_checkout_demo
+demo-app/custom_checkout_demo
+demo-app/subscription_demo
+
+# Documentation build artifacts
+docs/_build/
+site/
+
+# Certificate and key files
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+
+# Configuration files with sensitive data
+config.json
+config.yaml
+secrets.yaml
+credentials.json
