@@ -26,6 +26,7 @@ import (
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/events/models"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/events/models/enums"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/http"
+	commonModels "github.com/PhonePe/phonepe-pg-sdk-go/common/models"
 	request "github.com/PhonePe/phonepe-pg-sdk-go/common/models/request"
 	commonResponse "github.com/PhonePe/phonepe-pg-sdk-go/common/models/response"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/types"
@@ -89,7 +90,12 @@ func (c *CustomCheckoutClient) Pay(ctx context.Context, payRequest *request.PgPa
 		requestHeaders = append(requestHeaders, &http.HttpHeaderPair{Key: "x-device-os", Value: payRequest.DeviceOS})
 	}
 
-	err := c.RequestViaAuthRefresh(ctx, http.POST, payRequest, url, nil, &payResponse, requestHeaders)
+	hostURL := c.Env.PgHostURL
+	if isPciInstrument(payRequest) {
+		hostURL = c.Env.PciPgHostURL
+	}
+
+	err := c.RequestViaAuthRefreshWithHost(ctx, http.POST, payRequest, url, nil, &payResponse, requestHeaders, hostURL)
 	if err != nil {
 		c.EventPublisher.Send(models.BuildCustomCheckoutPayEventWithError(
 			enums.FAILED,
@@ -107,6 +113,19 @@ func (c *CustomCheckoutClient) Pay(ctx context.Context, payRequest *request.PgPa
 		enums.PAY_SUCCESS,
 	))
 	return &payResponse, nil
+}
+
+// isPciInstrument returns true if the payment request uses a PCI-scoped instrument (CARD or TOKEN).
+func isPciInstrument(payRequest *request.PgPaymentRequest) bool {
+	if payRequest.PaymentFlow == nil {
+		return false
+	}
+	pgFlow, ok := payRequest.PaymentFlow.(*request.PgPaymentFlow)
+	if !ok || pgFlow.PaymentMode == nil {
+		return false
+	}
+	t := pgFlow.PaymentMode.GetType()
+	return t == commonModels.CARD || t == commonModels.TOKEN
 }
 
 // CreateSdkOrder creates an order for mobile SDK integration
