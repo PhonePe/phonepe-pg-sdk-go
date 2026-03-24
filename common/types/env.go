@@ -47,3 +47,17 @@ var (
 		EventsHostURL: constants.TestingURL,
 	}
 )
+
+// NewEnv creates a custom Env. If pciPgHostURL is empty, it defaults to pgHostURL
+// (sandbox behaviour: no separate PCI zone).
+func NewEnv(pgHostURL, pciPgHostURL, oAuthHostURL, eventsHostURL string) Env {
+	if pciPgHostURL == "" {
+		pciPgHostURL = pgHostURL
+	}
+	return Env{
+		PgHostURL:     pgHostURL,
+		PciPgHostURL:  pciPgHostURL,
+		OAuthHostURL:  oAuthHostURL,
+		EventsHostURL: eventsHostURL,
+	}
+}
