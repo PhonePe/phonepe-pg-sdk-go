@@ -96,7 +96,7 @@ func (c *CustomCheckoutClient) Pay(ctx context.Context, payRequest *request.PgPa
 	}
 
 	hostURL := c.Env.PgHostURL
-	if isPciInstrument(payRequest) {
+	if isPciInstrument(payRequest) && c.Env.PciPgHostURL != "" {
 		hostURL = c.Env.PciPgHostURL
 	}
 
@@ -120,6 +120,8 @@ func (c *CustomCheckoutClient) Pay(ctx context.Context, payRequest *request.PgPa
 	return &payResponse, nil
 }
 
+var restrictedPattern = regexp.MustCompile(`^[a-zA-Z0-9_\- @.+]*$`)
+
 // validateMetaInfo validates udf field size and pattern constraints.
 // udf1-10: max 256 chars. udf11-15: max 50 chars, alphanumeric + [_ - @ . +] only.
 func validateMetaInfo(m commonModels.MetaInfo) error {
@@ -137,7 +139,6 @@ func validateMetaInfo(m commonModels.MetaInfo) error {
 	restrictedFields := []struct{ name, value string }{
 		{"udf11", m.Udf11}, {"udf12", m.Udf12}, {"udf13", m.Udf13}, {"udf14", m.Udf14}, {"udf15", m.Udf15},
 	}
-	restrictedPattern := regexp.MustCompile(`^[a-zA-Z0-9_\- @.+]*$`)
 	for _, f := range restrictedFields {
 		if len(f.value) > restrictedMax {
 			return fmt.Errorf("%s exceeds maximum allowed size of %d characters", f.name, restrictedMax)
