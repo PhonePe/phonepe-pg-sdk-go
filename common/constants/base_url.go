@@ -17,11 +17,12 @@
 package constants
 
 const (
-	ProductionPgHostURL     = "https://api.phonepe.com/apis/pg"
-	SandboxPgHostURL        = "https://api-preprod.phonepe.com/apis/pg-sandbox"
-	ProductionOAuthHostURL  = "https://api.phonepe.com/apis/identity-manager"
-	SandboxOAuthHostURL     = "https://api-preprod.phonepe.com/apis/pg-sandbox"
-	ProductionEventsHostURL = "https://api.phonepe.com/apis/pg-ingestion"
-	SandboxEventsHostURL    = "http://locahost"
-	TestingURL              = "http://localhost:30419"
+	ProductionPgHostURL       = "https://api.phonepe.com/apis/pg"
+	ProductionPciPgHostURL    = "https://cards.phonepe.com/apis/pg"
+	SandboxPgHostURL          = "https://api-preprod.phonepe.com/apis/pg-sandbox"
+	ProductionOAuthHostURL    = "https://api.phonepe.com/apis/identity-manager"
+	SandboxOAuthHostURL       = "https://api-preprod.phonepe.com/apis/pg-sandbox"
+	ProductionEventsHostURL   = "https://api.phonepe.com/apis/pg-ingestion"
+	SandboxEventsHostURL      = "http://locahost"
+	TestingURL                = "http://localhost:30419"
 )

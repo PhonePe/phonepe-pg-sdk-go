@@ -20,12 +20,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"strconv"
 
 	"github.com/PhonePe/phonepe-pg-sdk-go/common"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/events/models"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/events/models/enums"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/http"
+	commonModels "github.com/PhonePe/phonepe-pg-sdk-go/common/models"
 	request "github.com/PhonePe/phonepe-pg-sdk-go/common/models/request"
 	commonResponse "github.com/PhonePe/phonepe-pg-sdk-go/common/models/response"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/types"
@@ -79,6 +81,10 @@ func GetInstanceWithRetry(clientId string, clientSecret string, clientVersion in
 // Pay initiates a custom checkout payment request
 // ctx can be used to cancel the request, set timeouts, or propagate trace IDs
 func (c *CustomCheckoutClient) Pay(ctx context.Context, payRequest *request.PgPaymentRequest) (*commonResponse.PgPaymentResponse, error) {
+	if err := validateMetaInfo(payRequest.MetaInfo); err != nil {
+		return nil, err
+	}
+
 	url := PayApi
 	var payResponse commonResponse.PgPaymentResponse
 
@@ -89,7 +95,12 @@ func (c *CustomCheckoutClient) Pay(ctx context.Context, payRequest *request.PgPa
 		requestHeaders = append(requestHeaders, &http.HttpHeaderPair{Key: "x-device-os", Value: payRequest.DeviceOS})
 	}
 
-	err := c.RequestViaAuthRefresh(ctx, http.POST, payRequest, url, nil, &payResponse, requestHeaders)
+	hostURL := c.Env.PgHostURL
+	if isPciInstrument(payRequest) && c.Env.PciPgHostURL != "" {
+		hostURL = c.Env.PciPgHostURL
+	}
+
+	err := c.RequestViaAuthRefreshWithHost(ctx, http.POST, payRequest, url, nil, &payResponse, requestHeaders, hostURL)
 	if err != nil {
 		c.EventPublisher.Send(models.BuildCustomCheckoutPayEventWithError(
 			enums.FAILED,
@@ -107,6 +118,49 @@ func (c *CustomCheckoutClient) Pay(ctx context.Context, payRequest *request.PgPa
 		enums.PAY_SUCCESS,
 	))
 	return &payResponse, nil
+}
+
+var restrictedPattern = regexp.MustCompile(`^[a-zA-Z0-9_\- @.+]*$`)
+
+// validateMetaInfo validates udf field size and pattern constraints.
+// udf1-10: max 256 chars. udf11-15: max 50 chars, alphanumeric + [_ - @ . +] only.
+func validateMetaInfo(m commonModels.MetaInfo) error {
+	const freeMax = 256
+	const restrictedMax = 50
+	freeFields := []struct{ name, value string }{
+		{"udf1", m.Udf1}, {"udf2", m.Udf2}, {"udf3", m.Udf3}, {"udf4", m.Udf4}, {"udf5", m.Udf5},
+		{"udf6", m.Udf6}, {"udf7", m.Udf7}, {"udf8", m.Udf8}, {"udf9", m.Udf9}, {"udf10", m.Udf10},
+	}
+	for _, f := range freeFields {
+		if len(f.value) > freeMax {
+			return fmt.Errorf("%s exceeds maximum allowed size of %d characters", f.name, freeMax)
+		}
+	}
+	restrictedFields := []struct{ name, value string }{
+		{"udf11", m.Udf11}, {"udf12", m.Udf12}, {"udf13", m.Udf13}, {"udf14", m.Udf14}, {"udf15", m.Udf15},
+	}
+	for _, f := range restrictedFields {
+		if len(f.value) > restrictedMax {
+			return fmt.Errorf("%s exceeds maximum allowed size of %d characters", f.name, restrictedMax)
+		}
+		if f.value != "" && !restrictedPattern.MatchString(f.value) {
+			return fmt.Errorf("%s should only contain alphanumeric characters, underscores, hyphens, spaces, @, ., and +", f.name)
+		}
+	}
+	return nil
+}
+
+// isPciInstrument returns true if the payment request uses a PCI-scoped instrument (CARD or TOKEN).
+func isPciInstrument(payRequest *request.PgPaymentRequest) bool {
+	if payRequest.PaymentFlow == nil {
+		return false
+	}
+	pgFlow, ok := payRequest.PaymentFlow.(*request.PgPaymentFlow)
+	if !ok || pgFlow.PaymentMode == nil {
+		return false
+	}
+	t := pgFlow.PaymentMode.GetType()
+	return t == commonModels.CARD || t == commonModels.TOKEN
 }
 
 // CreateSdkOrder creates an order for mobile SDK integration

@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"reflect"
@@ -112,6 +113,15 @@ func createHTTPClientWithTimeouts() *http.Client {
 // responseObj should be a pointer to the expected response type
 // Context can be used for cancellation, timeouts, and request-scoped values
 func (bc *BaseClient) RequestViaAuthRefresh(ctx context.Context, methodName commonHttp.HttpMethodType, requestData interface{}, url string, queryParams map[string]string, responseObj interface{}, headers []*commonHttp.HttpHeaderPair) error {
+	return bc.RequestViaAuthRefreshWithHost(ctx, methodName, requestData, url, queryParams, responseObj, headers, bc.Env.PgHostURL)
+}
+
+// RequestViaAuthRefreshWithHost is like RequestViaAuthRefresh but uses an explicit hostURL instead of the default PgHostURL.
+// Use this when a specific endpoint (e.g. PCI) requires a different base host.
+func (bc *BaseClient) RequestViaAuthRefreshWithHost(ctx context.Context, methodName commonHttp.HttpMethodType, requestData interface{}, url string, queryParams map[string]string, responseObj interface{}, headers []*commonHttp.HttpHeaderPair, hostURL string) error {
+	if hostURL == "" {
+		return fmt.Errorf("hostURL must not be empty")
+	}
 	httpHeaders := make([]*commonHttp.HttpHeaderPair, len(headers))
 	copy(httpHeaders, headers)
 
@@ -131,7 +141,7 @@ func (bc *BaseClient) RequestViaAuthRefresh(ctx context.Context, methodName comm
 
 	httpCommand := commonHttp.NewHttpCommand(
 		bc.HttpClient,
-		bc.Env.PgHostURL,
+		hostURL,
 		url,
 		httpHeaders,
 		requestData,

@@ -22,6 +22,7 @@ import (
 
 type Env struct {
 	PgHostURL     string
+	PciPgHostURL  string
 	OAuthHostURL  string
 	EventsHostURL string
 }
@@ -29,17 +30,34 @@ type Env struct {
 var (
 	Sandbox = Env{
 		PgHostURL:     constants.SandboxPgHostURL,
+		PciPgHostURL:  constants.SandboxPgHostURL,
 		OAuthHostURL:  constants.SandboxOAuthHostURL,
 		EventsHostURL: constants.SandboxEventsHostURL,
 	}
 	Production = Env{
 		PgHostURL:     constants.ProductionPgHostURL,
+		PciPgHostURL:  constants.ProductionPciPgHostURL,
 		OAuthHostURL:  constants.ProductionOAuthHostURL,
 		EventsHostURL: constants.ProductionEventsHostURL,
 	}
 	Test = Env{
 		PgHostURL:     constants.TestingURL,
+		PciPgHostURL:  constants.TestingURL,
 		OAuthHostURL:  constants.TestingURL,
 		EventsHostURL: constants.TestingURL,
 	}
 )
+
+// NewEnv creates a custom Env. If pciPgHostURL is empty, it defaults to pgHostURL
+// (sandbox behaviour: no separate PCI zone).
+func NewEnv(pgHostURL, pciPgHostURL, oAuthHostURL, eventsHostURL string) Env {
+	if pciPgHostURL == "" {
+		pciPgHostURL = pgHostURL
+	}
+	return Env{
+		PgHostURL:     pgHostURL,
+		PciPgHostURL:  pciPgHostURL,
+		OAuthHostURL:  oAuthHostURL,
+		EventsHostURL: eventsHostURL,
+	}
+}

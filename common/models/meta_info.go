@@ -17,9 +17,19 @@
 package models
 
 type MetaInfo struct {
-	Udf1 string `json:"udf1,omitempty"`
-	Udf2 string `json:"udf2,omitempty"`
-	Udf3 string `json:"udf3,omitempty"`
-	Udf4 string `json:"udf4,omitempty"`
-	Udf5 string `json:"udf5,omitempty"`
+	Udf1  string `json:"udf1,omitempty"`
+	Udf2  string `json:"udf2,omitempty"`
+	Udf3  string `json:"udf3,omitempty"`
+	Udf4  string `json:"udf4,omitempty"`
+	Udf5  string `json:"udf5,omitempty"`
+	Udf6  string `json:"udf6,omitempty"`
+	Udf7  string `json:"udf7,omitempty"`
+	Udf8  string `json:"udf8,omitempty"`
+	Udf9  string `json:"udf9,omitempty"`
+	Udf10 string `json:"udf10,omitempty"`
+	Udf11 string `json:"udf11,omitempty"`
+	Udf12 string `json:"udf12,omitempty"`
+	Udf13 string `json:"udf13,omitempty"`
+	Udf14 string `json:"udf14,omitempty"`
+	Udf15 string `json:"udf15,omitempty"`
 }

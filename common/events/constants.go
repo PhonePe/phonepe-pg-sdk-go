@@ -22,7 +22,7 @@ const (
 	CLIENT_VERSION      = "v2"
 	AUTHORIZATION       = "Authorization"
 	SDK_TYPE            = "GO_SDK"
-	SDK_VERSION         = "1.0.0"
+	SDK_VERSION         = "1.0.1"
 
 	EVENTS_ENDPOINT = "/client/v1/backend/events/batch"
 	QUEUE_MAX_SIZE  = 20000 // Should be greater than MAX_EVENTS_IN_BATCH
