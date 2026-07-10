@@ -18,11 +18,21 @@ package models
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// callNewMetaInfo forwards a fixed-size array to NewMetaInfo to keep table tests concise.
+func callNewMetaInfo(args [15]string) (MetaInfo, error) {
+	return NewMetaInfo(
+		args[0], args[1], args[2], args[3], args[4],
+		args[5], args[6], args[7], args[8], args[9],
+		args[10], args[11], args[12], args[13], args[14],
+	)
+}
 
 func TestMetaInfoHasAllUdfFields(t *testing.T) {
 	m := MetaInfo{
@@ -116,5 +126,146 @@ func TestMetaInfoAllFieldsSerializedCorrectly(t *testing.T) {
 	}
 	for _, key := range expectedKeys {
 		assert.Contains(t, raw, key, "expected key %q in JSON", key)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// NewMetaInfo – happy paths
+// ---------------------------------------------------------------------------
+
+func TestNewMetaInfo_ValidFields(t *testing.T) {
+	m, err := NewMetaInfo(
+		"v1", "v2", "v3", "v4", "v5",
+		"v6", "v7", "v8", "v9", "v10",
+		"v11", "v12", "v13", "v14", "v15",
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "v1", m.Udf1)
+	assert.Equal(t, "v10", m.Udf10)
+	assert.Equal(t, "v11", m.Udf11)
+	assert.Equal(t, "v15", m.Udf15)
+}
+
+func TestNewMetaInfo_AllEmpty(t *testing.T) {
+	m, err := NewMetaInfo("", "", "", "", "", "", "", "", "", "", "", "", "", "", "")
+	require.NoError(t, err)
+	assert.Equal(t, MetaInfo{}, m)
+}
+
+func TestNewMetaInfo_Udf1To10_AtMaxLength(t *testing.T) {
+	val := strings.Repeat("a", 256)
+	var args [15]string
+	for i := 0; i < 10; i++ {
+		args[i] = val
+	}
+	m, err := callNewMetaInfo(args)
+	require.NoError(t, err)
+	assert.Equal(t, val, m.Udf1)
+	assert.Equal(t, val, m.Udf10)
+}
+
+func TestNewMetaInfo_Udf11To15_AtMaxLength(t *testing.T) {
+	val := strings.Repeat("a", 50)
+	var args [15]string
+	for i := 10; i < 15; i++ {
+		args[i] = val
+	}
+	m, err := callNewMetaInfo(args)
+	require.NoError(t, err)
+	assert.Equal(t, val, m.Udf11)
+	assert.Equal(t, val, m.Udf15)
+}
+
+func TestNewMetaInfo_Udf11To15_ValidPatternChars(t *testing.T) {
+	validValues := []string{
+		"abc123",
+		"hello world",
+		"user_name",
+		"user-name",
+		"user@domain.com",
+		"value+extra",
+		"Mix_ed-val @. +",
+	}
+	for _, val := range validValues {
+		var args [15]string
+		for i := 10; i < 15; i++ {
+			args[i] = val
+		}
+		_, err := callNewMetaInfo(args)
+		assert.NoError(t, err, "expected valid pattern for %q", val)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// NewMetaInfo – udf1–10 length errors
+// ---------------------------------------------------------------------------
+
+func TestNewMetaInfo_Udf1To10_ExceedsMaxLength(t *testing.T) {
+	over := strings.Repeat("a", 257)
+	tests := []struct {
+		field string
+		index int
+	}{
+		{"udf1", 0}, {"udf2", 1}, {"udf3", 2}, {"udf4", 3}, {"udf5", 4},
+		{"udf6", 5}, {"udf7", 6}, {"udf8", 7}, {"udf9", 8}, {"udf10", 9},
+	}
+	for _, tt := range tests {
+		t.Run(tt.field, func(t *testing.T) {
+			var args [15]string
+			args[tt.index] = over
+			_, err := callNewMetaInfo(args)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.field)
+			assert.Contains(t, err.Error(), "256")
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// NewMetaInfo – udf11–15 length errors
+// ---------------------------------------------------------------------------
+
+func TestNewMetaInfo_Udf11To15_ExceedsMaxLength(t *testing.T) {
+	over := strings.Repeat("a", 51)
+	tests := []struct {
+		field string
+		index int
+	}{
+		{"udf11", 10}, {"udf12", 11}, {"udf13", 12}, {"udf14", 13}, {"udf15", 14},
+	}
+	for _, tt := range tests {
+		t.Run(tt.field, func(t *testing.T) {
+			var args [15]string
+			args[tt.index] = over
+			_, err := callNewMetaInfo(args)
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.field)
+			assert.Contains(t, err.Error(), "50")
+		})
+	}
+}
+
+// ---------------------------------------------------------------------------
+// NewMetaInfo – udf11–15 pattern errors
+// ---------------------------------------------------------------------------
+
+func TestNewMetaInfo_Udf11To15_InvalidPatternChars(t *testing.T) {
+	invalidValues := []string{"value!", "val#ue", "val$", "val%", "val^", "val&", "val*", "val()", "val<>", "val~"}
+	tests := []struct {
+		field string
+		index int
+	}{
+		{"udf11", 10}, {"udf12", 11}, {"udf13", 12}, {"udf14", 13}, {"udf15", 14},
+	}
+	for _, tt := range tests {
+		for _, invalid := range invalidValues {
+			t.Run(tt.field+"/"+invalid, func(t *testing.T) {
+				var args [15]string
+				args[tt.index] = invalid
+				_, err := callNewMetaInfo(args)
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.field)
+			})
+		}
 	}
 }
