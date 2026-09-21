@@ -26,6 +26,8 @@ import (
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/exception"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/models"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/models/request"
+	"github.com/PhonePe/phonepe-pg-sdk-go/common/models/response/paymentinstruments"
+	"github.com/PhonePe/phonepe-pg-sdk-go/common/models/response/rails"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -306,6 +308,101 @@ func TestOrderStatus_NetBankingPaymentMethod(t *testing.T) {
 	assert.Equal(t, "COMPLETED", status.State)
 	assert.Len(t, status.PaymentDetails, 1)
 	assert.Equal(t, models.NET_BANKING, status.PaymentDetails[0].PaymentMode)
+}
+
+// Test Order Status - Credit Line instrument within splitInstruments
+func TestOrderStatus_CreditLineInstrument(t *testing.T) {
+	oauthServer := createMockOAuthServer()
+	defer oauthServer.Close()
+
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		orderResponse := map[string]interface{}{
+			"merchantId":      "PRODTEST",
+			"merchantOrderId": "28D43E2BAD6411EB85B692E8A924135",
+			"orderId":         "OMO2607151547579376222138V",
+			"state":           "COMPLETED",
+			"amount":          100,
+			"expireAt":        1784111877938,
+			"paymentDetails": []map[string]interface{}{
+				{
+					"transactionId": "OM2607151547580748627290V",
+					"paymentMode":   "UPI_INTENT",
+					"timestamp":     1784110678105,
+					"amount":        100,
+					"state":         "COMPLETED",
+					"instrument": map[string]interface{}{
+						"type":                "CREDIT_LINE",
+						"ifsc":                "KARB00CLUPI",
+						"accountHolderName":   "ANIL SASEENDRAN",
+						"bankId":              "KBCL",
+						"maskedAccountNumber": "XXXXXXXXXXXX2001",
+						"providerAccountType": "CREDITLINE",
+					},
+					"rail": map[string]interface{}{
+						"type":             "UPI",
+						"utr":              "287823703443",
+						"upiTransactionId": "YBL85ca838b05c1452a87742f14f987f864",
+						"vpa":              "96XXXXXXXX-7@ybl",
+					},
+					"splitInstruments": []map[string]interface{}{
+						{
+							"instrument": map[string]interface{}{
+								"type":                "CREDIT_LINE",
+								"ifsc":                "KARB00CLUPI",
+								"accountHolderName":   "ANIL SASEENDRAN",
+								"bankId":              "KBCL",
+								"maskedAccountNumber": "XXXXXXXXXXXX2001",
+								"providerAccountType": "CREDITLINE",
+							},
+							"rail": map[string]interface{}{
+								"type":             "UPI",
+								"utr":              "287823703443",
+								"upiTransactionId": "YBL85ca838b05c1452a87742f14f987f864",
+								"vpa":              "96XXXXXXXX-7@ybl",
+							},
+							"amount": 100,
+						},
+					},
+				},
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(orderResponse)
+	}))
+	defer apiServer.Close()
+
+	env := types.Env{
+		PgHostURL:     apiServer.URL,
+		OAuthHostURL:  oauthServer.URL,
+		EventsHostURL: "https://events.test.com",
+	}
+
+	client, err := GetInstance("client-id", "client-secret", 1, env, false)
+	require.NoError(t, err)
+
+	status, err := client.GetOrderStatus(context.Background(), "ORDER123", true)
+
+	require.NoError(t, err)
+	assert.Equal(t, "COMPLETED", status.State)
+	require.Len(t, status.PaymentDetails, 1)
+
+	splitInstruments := status.PaymentDetails[0].SplitInstruments
+	require.Len(t, splitInstruments, 1)
+
+	instrument, ok := splitInstruments[0].Instrument.(*paymentinstruments.CreditLinePaymentInstrumentV2)
+	require.True(t, ok, "expected instrument to be *CreditLinePaymentInstrumentV2")
+	assert.Equal(t, paymentinstruments.CREDIT_LINE, instrument.Type)
+	assert.Equal(t, "KARB00CLUPI", instrument.Ifsc)
+	assert.Equal(t, "ANIL SASEENDRAN", instrument.AccountHolderName)
+	assert.Equal(t, "KBCL", instrument.BankID)
+	assert.Equal(t, "XXXXXXXXXXXX2001", instrument.MaskedAccountNumber)
+	assert.Equal(t, "CREDITLINE", instrument.ProviderAccountType)
+
+	rail, ok := splitInstruments[0].Rail.(*rails.UpiPaymentRail)
+	require.True(t, ok, "expected rail to be *UpiPaymentRail")
+	assert.Equal(t, "287823703443", rail.Utr)
 }
 
 // Test Refund - 404 Not Found

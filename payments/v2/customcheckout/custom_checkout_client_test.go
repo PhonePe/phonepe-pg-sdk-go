@@ -21,13 +21,18 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/PhonePe/phonepe-pg-sdk-go/common"
 	httplib "github.com/PhonePe/phonepe-pg-sdk-go/common/http"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/models"
 	request "github.com/PhonePe/phonepe-pg-sdk-go/common/models/request"
+	commonResponse "github.com/PhonePe/phonepe-pg-sdk-go/common/models/response"
+	"github.com/PhonePe/phonepe-pg-sdk-go/common/models/response/paymentinstruments"
+	"github.com/PhonePe/phonepe-pg-sdk-go/common/models/response/rails"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/types"
+	v2_request "github.com/PhonePe/phonepe-pg-sdk-go/payments/v2/models/request"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -184,6 +189,113 @@ func TestPay_Error(t *testing.T) {
 	assert.Nil(t, response)
 }
 
+// Test Pay method - Invalid MetaInfo should be rejected before the HTTP call is made
+func TestPay_InvalidMetaInfo_ReturnsValidationError(t *testing.T) {
+	oauthServer := createMockOAuthServer()
+	defer oauthServer.Close()
+
+	apiCalled := false
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apiCalled = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer apiServer.Close()
+
+	env := types.Env{
+		PgHostURL:     apiServer.URL,
+		OAuthHostURL:  oauthServer.URL,
+		EventsHostURL: "https://events.phonepe.com",
+	}
+
+	client, err := GetInstance("test-client-id", "test-secret", 1, env, false)
+	require.NoError(t, err)
+
+	payRequest := &request.PgPaymentRequest{
+		MerchantOrderID: "ORDER123",
+		Amount:          10000,
+		MetaInfo:        models.MetaInfo{Udf12: "invalid#value"},
+	}
+
+	response, err := client.Pay(context.Background(), payRequest)
+
+	assert.Error(t, err)
+	assert.Nil(t, response)
+	assert.Contains(t, err.Error(), "udf12")
+	assert.False(t, apiCalled, "API should not be called when MetaInfo validation fails")
+}
+
+// Test Pay method - Valid MetaInfo should pass validation and succeed
+func TestPay_ValidMetaInfo_Success(t *testing.T) {
+	oauthServer := createMockOAuthServer()
+	defer oauthServer.Close()
+
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"orderId": "ORDER123",
+			"state":   "PENDING",
+		})
+	}))
+	defer apiServer.Close()
+
+	env := types.Env{
+		PgHostURL:     apiServer.URL,
+		OAuthHostURL:  oauthServer.URL,
+		EventsHostURL: "https://events.phonepe.com",
+	}
+
+	client, err := GetInstance("test-client-id", "test-secret", 1, env, false)
+	require.NoError(t, err)
+
+	payRequest := &request.PgPaymentRequest{
+		MerchantOrderID: "ORDER123",
+		Amount:          10000,
+		MetaInfo:        models.MetaInfo{Udf1: "some-value", Udf12: "valid_value-1"},
+	}
+
+	response, err := client.Pay(context.Background(), payRequest)
+
+	require.NoError(t, err)
+	assert.NotNil(t, response)
+	assert.NotEmpty(t, response.OrderID)
+}
+
+// Test CreateSdkOrder - Invalid MetaInfo should be rejected before the HTTP call is made
+func TestCreateSdkOrder_InvalidMetaInfo_ReturnsValidationError(t *testing.T) {
+	oauthServer := createMockOAuthServer()
+	defer oauthServer.Close()
+
+	apiCalled := false
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apiCalled = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer apiServer.Close()
+
+	env := types.Env{
+		PgHostURL:     apiServer.URL,
+		OAuthHostURL:  oauthServer.URL,
+		EventsHostURL: "https://events.phonepe.com",
+	}
+
+	client, err := GetInstance("test-client-id", "test-secret", 1, env, false)
+	require.NoError(t, err)
+
+	orderRequest := &v2_request.CreateSdkOrderRequest{
+		MerchantOrderID: "ORDER123",
+		Amount:          10000,
+		MetaInfo:        models.MetaInfo{Udf1: strings.Repeat("a", 257)}, // exceeds 256 char max
+	}
+
+	response, err := client.CreateSdkOrder(context.Background(), orderRequest)
+
+	assert.Error(t, err)
+	assert.Nil(t, response)
+	assert.Contains(t, err.Error(), "udf1")
+	assert.False(t, apiCalled, "API should not be called when MetaInfo validation fails")
+}
+
 // Test GetOrderStatus method
 func TestGetOrderStatus_Success(t *testing.T) {
 	oauthServer := createMockOAuthServer()
@@ -253,6 +365,101 @@ func TestGetOrderStatus_WithoutDetails(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, response)
+}
+
+// Test GetOrderStatus - Credit Line instrument within splitInstruments
+func TestGetOrderStatus_CreditLineInstrument(t *testing.T) {
+	oauthServer := createMockOAuthServer()
+	defer oauthServer.Close()
+
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		orderResponse := map[string]interface{}{
+			"merchantId":      "PRODTEST",
+			"merchantOrderId": "28D43E2BAD6411EB85B692E8A924135",
+			"orderId":         "OMO2607151547579376222138V",
+			"state":           "COMPLETED",
+			"amount":          100,
+			"expireAt":        1784111877938,
+			"paymentDetails": []map[string]interface{}{
+				{
+					"transactionId": "OM2607151547580748627290V",
+					"paymentMode":   "UPI_INTENT",
+					"timestamp":     1784110678105,
+					"amount":        100,
+					"state":         "COMPLETED",
+					"instrument": map[string]interface{}{
+						"type":                "CREDIT_LINE",
+						"ifsc":                "KARB00CLUPI",
+						"accountHolderName":   "ANIL SASEENDRAN",
+						"bankId":              "KBCL",
+						"maskedAccountNumber": "XXXXXXXXXXXX2001",
+						"providerAccountType": "CREDITLINE",
+					},
+					"rail": map[string]interface{}{
+						"type":             "UPI",
+						"utr":              "287823703443",
+						"upiTransactionId": "YBL85ca838b05c1452a87742f14f987f864",
+						"vpa":              "96XXXXXXXX-7@ybl",
+					},
+					"splitInstruments": []map[string]interface{}{
+						{
+							"instrument": map[string]interface{}{
+								"type":                "CREDIT_LINE",
+								"ifsc":                "KARB00CLUPI",
+								"accountHolderName":   "ANIL SASEENDRAN",
+								"bankId":              "KBCL",
+								"maskedAccountNumber": "XXXXXXXXXXXX2001",
+								"providerAccountType": "CREDITLINE",
+							},
+							"rail": map[string]interface{}{
+								"type":             "UPI",
+								"utr":              "287823703443",
+								"upiTransactionId": "YBL85ca838b05c1452a87742f14f987f864",
+								"vpa":              "96XXXXXXXX-7@ybl",
+							},
+							"amount": 100,
+						},
+					},
+				},
+			},
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(orderResponse)
+	}))
+	defer apiServer.Close()
+
+	env := types.Env{
+		PgHostURL:     apiServer.URL,
+		OAuthHostURL:  oauthServer.URL,
+		EventsHostURL: "https://events.phonepe.com",
+	}
+
+	client, err := GetInstance("test-client-id", "test-secret", 1, env, false)
+	require.NoError(t, err)
+
+	status, err := client.GetOrderStatus(context.Background(), "ORDER123", true)
+
+	require.NoError(t, err)
+	assert.Equal(t, "COMPLETED", status.State)
+	require.Len(t, status.PaymentDetails, 1)
+
+	splitInstruments := status.PaymentDetails[0].SplitInstruments
+	require.Len(t, splitInstruments, 1)
+
+	instrument, ok := splitInstruments[0].Instrument.(*paymentinstruments.CreditLinePaymentInstrumentV2)
+	require.True(t, ok, "expected instrument to be *CreditLinePaymentInstrumentV2")
+	assert.Equal(t, paymentinstruments.CREDIT_LINE, instrument.Type)
+	assert.Equal(t, "KARB00CLUPI", instrument.Ifsc)
+	assert.Equal(t, "ANIL SASEENDRAN", instrument.AccountHolderName)
+	assert.Equal(t, "KBCL", instrument.BankID)
+	assert.Equal(t, "XXXXXXXXXXXX2001", instrument.MaskedAccountNumber)
+	assert.Equal(t, "CREDITLINE", instrument.ProviderAccountType)
+
+	rail, ok := splitInstruments[0].Rail.(*rails.UpiPaymentRail)
+	require.True(t, ok, "expected rail to be *UpiPaymentRail")
+	assert.Equal(t, "287823703443", rail.Utr)
 }
 
 // Test GetTransactionStatus method
@@ -408,6 +615,92 @@ func TestValidateCallback_Success(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.NotNil(t, response)
+}
+
+// Test ValidateCallback with Credit Line instrument in splitInstruments
+func TestValidateCallback_CreditLineInstrument(t *testing.T) {
+	oauthServer := createMockOAuthServer()
+	defer oauthServer.Close()
+
+	env := types.Env{
+		PgHostURL:     "https://api.phonepe.com",
+		OAuthHostURL:  oauthServer.URL,
+		EventsHostURL: "https://events.phonepe.com",
+	}
+
+	client, err := GetInstance("test-client-id", "test-secret", 1, env, false)
+	require.NoError(t, err)
+
+	callbackData := map[string]interface{}{
+		"data": map[string]interface{}{
+			"merchantId":      "PRODTEST",
+			"merchantOrderId": "28D43E2BAD6411EB85B692E8A924135",
+			"orderId":         "OMO2607151547579376222138V",
+			"state":           "COMPLETED",
+			"amount":          100,
+			"paymentDetails": []map[string]interface{}{
+				{
+					"transactionId": "OM2607151547580748627290V",
+					"paymentMode":   "UPI_INTENT",
+					"timestamp":     1784110678105,
+					"amount":        100,
+					"state":         "COMPLETED",
+					"instrument": map[string]interface{}{
+						"type":                "CREDIT_LINE",
+						"ifsc":                "KARB00CLUPI",
+						"accountHolderName":   "ANIL SASEENDRAN",
+						"bankId":              "KBCL",
+						"maskedAccountNumber": "XXXXXXXXXXXX2001",
+						"providerAccountType": "CREDITLINE",
+					},
+					"rail": map[string]interface{}{
+						"type":             "UPI",
+						"utr":              "287823703443",
+						"upiTransactionId": "YBL85ca838b05c1452a87742f14f987f864",
+						"vpa":              "96XXXXXXXX-7@ybl",
+					},
+					"splitInstruments": []map[string]interface{}{
+						{
+							"instrument": map[string]interface{}{
+								"type":                "CREDIT_LINE",
+								"ifsc":                "KARB00CLUPI",
+								"accountHolderName":   "ANIL SASEENDRAN",
+								"bankId":              "KBCL",
+								"maskedAccountNumber": "XXXXXXXXXXXX2001",
+								"providerAccountType": "CREDITLINE",
+							},
+							"rail": map[string]interface{}{
+								"type":             "UPI",
+								"utr":              "287823703443",
+								"upiTransactionId": "YBL85ca838b05c1452a87742f14f987f864",
+								"vpa":              "96XXXXXXXX-7@ybl",
+							},
+							"amount": 100,
+						},
+					},
+				},
+			},
+		},
+	}
+	callbackJSON, _ := json.Marshal(callbackData)
+
+	// SHA256 of "test-user:test-pass"
+	authHash := "75f05a3e2a10a7488c40eac6ef38da95df902e8fc3886531ce97ee8599481584"
+
+	result, err := client.ValidateCallback("test-user", "test-pass", authHash, string(callbackJSON))
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Len(t, result.Data.PaymentDetails, 1)
+
+	splitInstruments := result.Data.PaymentDetails[0].SplitInstruments
+	require.Len(t, splitInstruments, 1)
+
+	instrument, ok := splitInstruments[0].Instrument.(*paymentinstruments.CreditLinePaymentInstrumentV2)
+	require.True(t, ok, "expected instrument to be *CreditLinePaymentInstrumentV2")
+	assert.Equal(t, "KBCL", instrument.BankID)
+	assert.Equal(t, "XXXXXXXXXXXX2001", instrument.MaskedAccountNumber)
+	assert.Equal(t, "CREDITLINE", instrument.ProviderAccountType)
 }
 
 func TestValidateCallback_InvalidAuth(t *testing.T) {

@@ -20,8 +20,11 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/PhonePe/phonepe-pg-sdk-go/common"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/models"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/models/response"
+	"github.com/PhonePe/phonepe-pg-sdk-go/common/models/response/paymentinstruments"
+	"github.com/PhonePe/phonepe-pg-sdk-go/common/models/response/rails"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -78,6 +81,79 @@ func TestCallback_PgOrderCompleted(t *testing.T) {
 		assert.Equal(t, "COMPLETED", result.Data.State)
 		assert.Equal(t, int64(10000), result.Data.Amount)
 	}
+}
+
+// Test callback with Credit Line instrument in splitInstruments
+func TestCallback_InstrumentCreditLine(t *testing.T) {
+	oauthServer := createMockOAuthServer()
+	defer oauthServer.Close()
+
+	env := types.Env{
+		PgHostURL:     "https://api.test.com",
+		OAuthHostURL:  oauthServer.URL,
+		EventsHostURL: "https://events.test.com",
+	}
+
+	client, err := GetInstance("client-id", "client-secret", 1, env, false)
+	require.NoError(t, err)
+
+	callbackData := response.CallbackResponse{
+		Data: response.CallbackData{
+			OrderID:         "OMO2607151547579376222138V",
+			MerchantID:      "PRODTEST",
+			MerchantOrderID: "28D43E2BAD6411EB85B692E8A924135",
+			State:           "COMPLETED",
+			Amount:          100,
+			PaymentDetails: []response.PaymentDetail{
+				{
+					TransactionID: "OM2607151547580748627290V",
+					PaymentMode:   models.UPI_INTENT,
+					Timestamp:     1784110678105,
+					Amount:        100,
+					State:         "COMPLETED",
+					SplitInstruments: []response.InstrumentCombo{
+						{
+							Instrument: &paymentinstruments.CreditLinePaymentInstrumentV2{
+								Type:                paymentinstruments.CREDIT_LINE,
+								Ifsc:                "KARB00CLUPI",
+								AccountHolderName:   "ANIL SASEENDRAN",
+								BankID:              "KBCL",
+								MaskedAccountNumber: "XXXXXXXXXXXX2001",
+								ProviderAccountType: "CREDITLINE",
+							},
+							Rail: &rails.UpiPaymentRail{
+								Type:             rails.UPI,
+								Utr:              "287823703443",
+								UpiTransactionID: "YBL85ca838b05c1452a87742f14f987f864",
+								Vpa:              "96XXXXXXXX-7@ybl",
+							},
+							Amount: 100,
+						},
+					},
+				},
+			},
+		},
+	}
+	responseBody, _ := json.Marshal(callbackData)
+
+	username := "merchant"
+	password := "secret"
+	authorization := common.CalculateSha256(username, password)
+
+	result, err := client.ValidateCallback(username, password, authorization, string(responseBody))
+
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	require.Len(t, result.Data.PaymentDetails, 1)
+
+	splitInstruments := result.Data.PaymentDetails[0].SplitInstruments
+	require.Len(t, splitInstruments, 1)
+
+	instrument, ok := splitInstruments[0].Instrument.(*paymentinstruments.CreditLinePaymentInstrumentV2)
+	require.True(t, ok, "expected instrument to be *CreditLinePaymentInstrumentV2")
+	assert.Equal(t, "KBCL", instrument.BankID)
+	assert.Equal(t, "XXXXXXXXXXXX2001", instrument.MaskedAccountNumber)
+	assert.Equal(t, "CREDITLINE", instrument.ProviderAccountType)
 }
 
 // Test checkout.transaction.attempt.failed callback
