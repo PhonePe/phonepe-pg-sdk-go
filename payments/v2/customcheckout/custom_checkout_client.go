@@ -80,6 +80,10 @@ func GetInstanceWithRetry(clientId string, clientSecret string, clientVersion in
 // Pay initiates a custom checkout payment request
 // ctx can be used to cancel the request, set timeouts, or propagate trace IDs
 func (c *CustomCheckoutClient) Pay(ctx context.Context, payRequest *request.PgPaymentRequest) (*commonResponse.PgPaymentResponse, error) {
+	if err := payRequest.MetaInfo.Validate(); err != nil {
+		return nil, err
+	}
+
 	url := PayApi
 	var payResponse commonResponse.PgPaymentResponse
 
@@ -131,6 +135,10 @@ func isPciInstrument(payRequest *request.PgPaymentRequest) bool {
 // CreateSdkOrder creates an order for mobile SDK integration
 // ctx can be used to cancel the request, set timeouts, or propagate trace IDs
 func (c *CustomCheckoutClient) CreateSdkOrder(ctx context.Context, orderRequest *v2_request.CreateSdkOrderRequest) (*v2_response.CreateSdkOrderResponse, error) {
+	if err := orderRequest.MetaInfo.Validate(); err != nil {
+		return nil, err
+	}
+
 	url := CreateOrderApi
 	var orderResponse v2_response.CreateSdkOrderResponse
 

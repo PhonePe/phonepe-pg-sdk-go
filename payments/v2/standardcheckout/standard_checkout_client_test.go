@@ -26,6 +26,7 @@ import (
 
 	"github.com/PhonePe/phonepe-pg-sdk-go/common"
 	commonHttp "github.com/PhonePe/phonepe-pg-sdk-go/common/http"
+	commonModels "github.com/PhonePe/phonepe-pg-sdk-go/common/models"
 	commonRequest "github.com/PhonePe/phonepe-pg-sdk-go/common/models/request"
 	commonResponse "github.com/PhonePe/phonepe-pg-sdk-go/common/models/response"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/types"
@@ -210,6 +211,118 @@ func TestPay_Error(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Nil(t, response)
+}
+
+// Test Pay method - Invalid MetaInfo should be rejected before the HTTP call is made
+func TestPay_InvalidMetaInfo_ReturnsValidationError(t *testing.T) {
+	oauthServer := createMockOAuthServer()
+	defer oauthServer.Close()
+
+	apiCalled := false
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apiCalled = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer apiServer.Close()
+
+	env := types.Env{
+		PgHostURL:     apiServer.URL,
+		OAuthHostURL:  oauthServer.URL,
+		EventsHostURL: "https://events.test.com",
+	}
+
+	client, err := GetInstance("client-id", "client-secret", 1, env, false)
+	require.NoError(t, err)
+
+	invalidMetaInfo := &commonModels.MetaInfo{Udf11: "invalid!value"}
+	payRequest := &request.StandardCheckoutPayRequest{
+		MerchantOrderID: "ORDER123",
+		Amount:          10000,
+		MetaInfo:        invalidMetaInfo,
+	}
+
+	response, err := client.Pay(context.Background(), payRequest)
+
+	assert.Error(t, err)
+	assert.Nil(t, response)
+	assert.Contains(t, err.Error(), "udf11")
+	assert.False(t, apiCalled, "API should not be called when MetaInfo validation fails")
+}
+
+// Test Pay method - Valid MetaInfo should pass validation and succeed
+func TestPay_ValidMetaInfo_Success(t *testing.T) {
+	oauthServer := createMockOAuthServer()
+	defer oauthServer.Close()
+
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		payResponse := v2_response.StandardCheckoutPayResponse{
+			OrderID:     "ORDER123",
+			State:       "PENDING",
+			ExpireAt:    1234567890,
+			RedirectURL: "https://payments.phonepe.com/test",
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(payResponse)
+	}))
+	defer apiServer.Close()
+
+	env := types.Env{
+		PgHostURL:     apiServer.URL,
+		OAuthHostURL:  oauthServer.URL,
+		EventsHostURL: "https://events.test.com",
+	}
+
+	client, err := GetInstance("client-id", "client-secret", 1, env, false)
+	require.NoError(t, err)
+
+	validMetaInfo := &commonModels.MetaInfo{Udf1: "some-value", Udf11: "valid_value-1"}
+	payRequest := &request.StandardCheckoutPayRequest{
+		MerchantOrderID: "ORDER123",
+		Amount:          10000,
+		MetaInfo:        validMetaInfo,
+	}
+
+	response, err := client.Pay(context.Background(), payRequest)
+
+	require.NoError(t, err)
+	require.NotNil(t, response)
+	assert.Equal(t, "ORDER123", response.OrderID)
+}
+
+// Test CreateSdkOrder - Invalid MetaInfo should be rejected before the HTTP call is made
+func TestCreateSdkOrder_InvalidMetaInfo_ReturnsValidationError(t *testing.T) {
+	oauthServer := createMockOAuthServer()
+	defer oauthServer.Close()
+
+	apiCalled := false
+	apiServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		apiCalled = true
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer apiServer.Close()
+
+	env := types.Env{
+		PgHostURL:     apiServer.URL,
+		OAuthHostURL:  oauthServer.URL,
+		EventsHostURL: "https://events.test.com",
+	}
+
+	client, err := GetInstance("client-id", "client-secret", 1, env, false)
+	require.NoError(t, err)
+
+	orderRequest := &request.CreateSdkOrderRequest{
+		MerchantOrderID: "ORDER123",
+		Amount:          10000,
+		MetaInfo:        commonModels.MetaInfo{Udf15: fmt.Sprintf("%051d", 0)}, // exceeds 50 char max
+	}
+
+	response, err := client.CreateSdkOrder(context.Background(), orderRequest)
+
+	assert.Error(t, err)
+	assert.Nil(t, response)
+	assert.Contains(t, err.Error(), "udf15")
+	assert.False(t, apiCalled, "API should not be called when MetaInfo validation fails")
 }
 
 // Test GetOrderStatus - Success

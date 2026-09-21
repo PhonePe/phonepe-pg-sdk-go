@@ -25,6 +25,7 @@ const (
 	CREDIT_CARD PaymentInstrumentType = "CREDIT_CARD"
 	DEBIT_CARD  PaymentInstrumentType = "DEBIT_CARD"
 	NET_BANKING PaymentInstrumentType = "NET_BANKING"
+	CREDIT_LINE PaymentInstrumentType = "CREDIT_LINE"
 )
 
 type PaymentInstrumentV2 interface {
