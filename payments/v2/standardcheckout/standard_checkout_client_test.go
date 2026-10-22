@@ -723,3 +723,24 @@ func TestGetInstance_DifferentEnvironments(t *testing.T) {
 		})
 	}
 }
+
+func TestNilRequests_ReturnError(t *testing.T) {
+	oauthServer := createMockOAuthServer()
+	defer oauthServer.Close()
+
+	env := types.Env{
+		PgHostURL:     "https://api.test.com",
+		OAuthHostURL:  oauthServer.URL,
+		EventsHostURL: "https://events.test.com",
+	}
+	client, err := GetInstance("client-id", "client-secret", 1, env, false)
+	require.NoError(t, err)
+
+	payResp, err := client.Pay(context.Background(), nil)
+	assert.Error(t, err)
+	assert.Nil(t, payResp)
+
+	orderResp, err := client.CreateSdkOrder(context.Background(), nil)
+	assert.Error(t, err)
+	assert.Nil(t, orderResp)
+}

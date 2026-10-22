@@ -28,7 +28,6 @@ import (
 	httplib "github.com/PhonePe/phonepe-pg-sdk-go/common/http"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/models"
 	request "github.com/PhonePe/phonepe-pg-sdk-go/common/models/request"
-	commonResponse "github.com/PhonePe/phonepe-pg-sdk-go/common/models/response"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/models/response/paymentinstruments"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/models/response/rails"
 	"github.com/PhonePe/phonepe-pg-sdk-go/common/types"

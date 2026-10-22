@@ -80,6 +80,9 @@ func GetInstanceWithRetry(clientId string, clientSecret string, clientVersion in
 // Pay initiates a standard checkout payment request
 // ctx can be used to cancel the request, set timeouts, or propagate trace IDs
 func (s *StandardCheckoutClient) Pay(ctx context.Context, payRequest *request.StandardCheckoutPayRequest) (*response.StandardCheckoutPayResponse, error) {
+	if payRequest == nil {
+		return nil, fmt.Errorf("payRequest must not be nil")
+	}
 	if payRequest.MetaInfo != nil {
 		if err := payRequest.MetaInfo.Validate(); err != nil {
 			return nil, err
@@ -176,6 +179,9 @@ func (s *StandardCheckoutClient) Refund(ctx context.Context, refundRequest *comm
 // CreateSdkOrder creates an order for mobile SDK integration
 // ctx can be used to cancel the request, set timeouts, or propagate trace IDs
 func (s *StandardCheckoutClient) CreateSdkOrder(ctx context.Context, orderRequest *request.CreateSdkOrderRequest) (*response.CreateSdkOrderResponse, error) {
+	if orderRequest == nil {
+		return nil, fmt.Errorf("orderRequest must not be nil")
+	}
 	if err := orderRequest.MetaInfo.Validate(); err != nil {
 		return nil, err
 	}

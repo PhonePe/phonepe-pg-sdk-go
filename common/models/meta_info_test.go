@@ -107,8 +107,8 @@ func TestMetaInfoOmitempty(t *testing.T) {
 
 func TestMetaInfoAllFieldsSerializedCorrectly(t *testing.T) {
 	m := MetaInfo{
-		Udf1:  "1", Udf2: "2", Udf3: "3", Udf4: "4", Udf5: "5",
-		Udf6:  "6", Udf7: "7", Udf8: "8", Udf9: "9", Udf10: "10",
+		Udf1: "1", Udf2: "2", Udf3: "3", Udf4: "4", Udf5: "5",
+		Udf6: "6", Udf7: "7", Udf8: "8", Udf9: "9", Udf10: "10",
 		Udf11: "11", Udf12: "12", Udf13: "13", Udf14: "14", Udf15: "15",
 	}
 
@@ -268,4 +268,16 @@ func TestNewMetaInfo_Udf11To15_InvalidPatternChars(t *testing.T) {
 			})
 		}
 	}
+}
+
+// The limit is counted in characters (runes), not bytes.
+func TestNewMetaInfo_LimitsCountCharactersNotBytes(t *testing.T) {
+	var args [15]string
+	args[0] = strings.Repeat("é", 256) // 512 bytes, 256 characters
+	_, err := callNewMetaInfo(args)
+	assert.NoError(t, err)
+
+	args[0] = strings.Repeat("é", 257)
+	_, err = callNewMetaInfo(args)
+	assert.Error(t, err)
 }
