@@ -19,7 +19,7 @@ package models
 import (
 	"fmt"
 	"regexp"
-	"unicode/utf16"
+	"unicode/utf8"
 )
 
 var metaInfoRestrictedPattern = regexp.MustCompile(`^[a-zA-Z0-9_\- @.+]*$`)
@@ -54,12 +54,6 @@ func NewMetaInfo(udf1, udf2, udf3, udf4, udf5, udf6, udf7, udf8, udf9, udf10, ud
 	return m, m.Validate()
 }
 
-// javaLength returns the length of s in UTF-16 code units, which is how the
-// server's javax.validation @Size constraint counts (String.length()).
-func javaLength(s string) int {
-	return len(utf16.Encode([]rune(s)))
-}
-
 // Validate checks udf field length and pattern constraints.
 // The SDK calls it automatically in the checkout clients' Pay and CreateSdkOrder
 // methods only. Request constructors and struct literals are not validated, so
@@ -75,7 +69,7 @@ func (m MetaInfo) Validate() error {
 		{"udf6", m.Udf6}, {"udf7", m.Udf7}, {"udf8", m.Udf8}, {"udf9", m.Udf9}, {"udf10", m.Udf10},
 	}
 	for _, f := range freeFields {
-		if javaLength(f.value) > freeMax {
+		if utf8.RuneCountInString(f.value) > freeMax {
 			return fmt.Errorf("%s exceeds maximum allowed size of %d characters", f.name, freeMax)
 		}
 	}
@@ -84,7 +78,7 @@ func (m MetaInfo) Validate() error {
 		{"udf11", m.Udf11}, {"udf12", m.Udf12}, {"udf13", m.Udf13}, {"udf14", m.Udf14}, {"udf15", m.Udf15},
 	}
 	for _, f := range restrictedFields {
-		if javaLength(f.value) > restrictedMax {
+		if utf8.RuneCountInString(f.value) > restrictedMax {
 			return fmt.Errorf("%s exceeds maximum allowed size of %d characters", f.name, restrictedMax)
 		}
 		if f.value != "" && !metaInfoRestrictedPattern.MatchString(f.value) {

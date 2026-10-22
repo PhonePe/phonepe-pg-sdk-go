@@ -124,7 +124,7 @@ checkoutPageUrl := payResponse.RedirectURL
 
 `MetaInfo` fields are validated by the SDK before the request is sent, in `Pay` and `CreateSdkOrder` of both the standard and custom checkout clients. An invalid value returns an error without making an API call.
 
-- `udf1`–`udf10`: up to 256 characters (counted in UTF-16 code units, as on the server).
+- `udf1`–`udf10`: up to 256 characters (counted in characters, not bytes).
 - `udf11`–`udf15`: up to 50 characters; only letters, digits, spaces and `_ - @ . +`.
 
 Request constructors and struct literals do not validate. Use `models.NewMetaInfo(...)` or call `metaInfo.Validate()` to catch errors earlier. The subscription client does not accept `MetaInfo`.
