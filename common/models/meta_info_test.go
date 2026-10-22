@@ -270,14 +270,23 @@ func TestNewMetaInfo_Udf11To15_InvalidPatternChars(t *testing.T) {
 	}
 }
 
-// The limit is counted in characters (runes), not bytes.
-func TestNewMetaInfo_LimitsCountCharactersNotBytes(t *testing.T) {
+// The limit is counted like the server's Java String.length() (UTF-16 code units), not bytes.
+func TestNewMetaInfo_LimitsCountUTF16Units(t *testing.T) {
 	var args [15]string
-	args[0] = strings.Repeat("é", 256) // 512 bytes, 256 characters
+	args[0] = strings.Repeat("é", 256) // 512 bytes, 256 UTF-16 units
 	_, err := callNewMetaInfo(args)
 	assert.NoError(t, err)
 
 	args[0] = strings.Repeat("é", 257)
+	_, err = callNewMetaInfo(args)
+	assert.Error(t, err)
+
+	// Supplementary characters take 2 UTF-16 units each.
+	args[0] = strings.Repeat("😀", 128)
+	_, err = callNewMetaInfo(args)
+	assert.NoError(t, err)
+
+	args[0] = strings.Repeat("😀", 129)
 	_, err = callNewMetaInfo(args)
 	assert.Error(t, err)
 }
