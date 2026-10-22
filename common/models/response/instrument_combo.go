@@ -91,6 +91,12 @@ func (ic *InstrumentCombo) UnmarshalJSON(data []byte) error {
 				return err
 			}
 			instrument = &d
+		case paymentinstruments.CREDIT_LINE:
+			var cl paymentinstruments.CreditLinePaymentInstrumentV2
+			if err := json.Unmarshal(temp.Instrument, &cl); err != nil {
+				return err
+			}
+			instrument = &cl
 		default:
 			return fmt.Errorf("unknown payment instrument type: %s", instrumentTypeHolder.Type)
 		}
