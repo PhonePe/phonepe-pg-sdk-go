@@ -61,6 +61,9 @@ func javaLength(s string) int {
 }
 
 // Validate checks udf field length and pattern constraints.
+// The SDK calls it automatically in the checkout clients' Pay and CreateSdkOrder
+// methods only. Request constructors and struct literals are not validated, so
+// call Validate (or use NewMetaInfo) to fail earlier.
 // udf1–udf10: max 256 characters.
 // udf11–udf15: max 50 characters, restricted to alphanumeric and [_ - @ . +].
 func (m MetaInfo) Validate() error {
